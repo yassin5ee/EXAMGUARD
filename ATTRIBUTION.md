@@ -19,14 +19,14 @@ Nous certifions que le travail réalisé dans le cadre du projet ExamGuard repos
 
 ## 3. Déclaration d'utilisation de l'intelligence artificielle
 
-L'équipe déclare avoir utilisé **ChatGPT** comme outil d'assistance durant la Phase 1, principalement pour structurer les exigences, améliorer la rédaction et clarifier certains concepts liés à la sécurité et à la fiabilité du système.
+L'équipe déclare avoir utilisé **ChatGPT** comme outil d'assistance pendant les phases 1 et 2, notamment pour structurer les documents, proposer des analyses de sécurité et aider à la rédaction et à la mise en forme.
 
 | Phase / Composant | Outil utilisé | Contenu généré estimé | Utilisation | Rôle précis de l'IA & Prompts clés utilisés |
 |---|---|---:|---|---|
-| Phase 1 – Recueil et spécification des besoins | ChatGPT | 70% | Aide à la structuration des exigences fonctionnelles et non fonctionnelles, à la rédaction du document et à la clarification des notions de sécurité et de SRE. | Aide-nous à structurer le recueil des besoins de notre application ExamGuard, qui vise à sécuriser la gestion et la distribution des sujets d'examen numériques. Identifie les acteurs, les besoins fonctionnels et non fonctionnels, ainsi que les exigences de sécurité liées à la confidentialité, à l'intégrité et à la traçabilité des documents.
+| Phase 1 – Recueil et spécification des besoins | ChatGPT | 70% | Aide à la structuration des exigences fonctionnelles et non fonctionnelles, à la rédaction du document et à la clarification des notions de sécurité et de SRE. | Aide-nous à structurer le recueil des besoins de notre application ExamGuard, qui vise à sécuriser la gestion et la distribution des sujets d'examen numériques. Identifie les acteurs, les besoins fonctionnels et non fonctionnels, ainsi que les exigences de sécurité liées à la confidentialité, à l'intégrité et à la traçabilité des documents. |
+| Phase 2 – Conception sécurisée | ChatGPT | 60% | Génération d'une première version complète du cahier conceptuel et assistance pour ses révisions, la matrice STRIDE, la cotation OWASP et l'architecture sécurisée. | Aide à la rédaction des scénarios et des contre-mesures, à la création des schémas d'architecture et à la génération de la source LaTeX et du PDF. Exemples de demandes : « Établir une matrice STRIDE contextualisée à Java 25, Jakarta EE 11 et au moteur de dissimulation » ; « Proposer une architecture sécurisée avec des schémas lisibles ». |
 
-
-Les propositions générées par l'IA ont été examinées et adaptées par les membres de l'équipe.
+Les propositions de la phase 1 générées par l'IA ont été examinées et adaptées par les membres de l'équipe. Pour la phase 2, les membres de l'équipe sont responsables de vérifier et de valider les scénarios, les cotations, les références et les choix techniques proposés.
 
 ## 4. Engagement des membres
 
