@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>tn.supcom.examguard</groupId>
+    <artifactId>examguard-parent</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <relativePath>../../pom.xml</relativePath>
+  </parent>
+  <artifactId>examguard-arch-tests</artifactId>
+  <name>ExamGuard :: Tests d'architecture de securite</name>
+  <description>
+    Barriere de construction : fait echouer le build si une regle structurelle de
+    securite est violee. Porte ES-AUZ-01 (refus par defaut : chaque methode de
+    ressource REST declare ses roles) : la construction echoue si un endpoint REST
+    n'est pas annote.
+  </description>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.tngtech.archunit</groupId>
+      <artifactId>archunit-junit5</artifactId>
+    </dependency>
+
+    <!--
+      Les deux WAR exposent leurs classes compilees via <attachClasses>true</attachClasses>
+      (classifier "classes"). C'est ce qui permet d'analyser les deux deployables depuis
+      un module unique, au lieu de dupliquer la regle dans chacun.
+      Consequence : ce module exige la phase "package" des WAR, donc "mvn verify", pas "mvn test".
+    -->
+    <dependency>
+      <groupId>tn.supcom.examguard</groupId>
+      <artifactId>examguard-api</artifactId>
+      <version>${project.version}</version>
+      <classifier>classes</classifier>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>tn.supcom.examguard</groupId>
+      <artifactId>examguard-iam</artifactId>
+      <version>${project.version}</version>
+      <classifier>classes</classifier>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

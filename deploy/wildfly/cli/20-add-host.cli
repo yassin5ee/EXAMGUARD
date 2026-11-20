@@ -1,0 +1,65 @@
+# Hote statique supplementaire (PWA d'administration).
+# Joue avec admin-host-dev.properties ou admin-host-prod.properties.
+#
+# Suppose 10-default-host.cli deja joue : les filtres references ici y sont definis.
+#
+# Contraintes du CLI WildFly prises en compte ici, verifiees par execution
+# contre un WildFly 42.0.0.Final ; voir deploy/README.md.
+#   1. Les commandes "set" restent hors du bloc "batch" (commande locale du CLI,
+#      non admise dans un lot).
+#   2. Le motif CORS n'emploie aucune contre-oblique : le CLI les depouille
+#      toutes. [0-9] et [.] remplacent \d et \.
+#   3. Idempotence : garde "if (outcome != success)", sans laquelle un second
+#      passage echoue en "Duplicate resource" -- or le pipeline rejoue ce script.
+#   4. Access-Control-Allow-Origin provient de l'expression-filter global
+#      cors-allow-origin (defini par 10-default-host.cli) : un response-header
+#      n'interprete pas %{i,Origin} et renverrait la chaine litterale. Son
+#      expression est constante : c'est le predicat du filter-ref qui decide.
+#   5. Pas de commande "echo" : le CLI n'y developpe pas les variables et imprime
+#      les guillemets ; un ">" non protege provoque une erreur de syntaxe aesh.
+
+set pathTo=`:resolve-expression(expression=${host.path})`
+set aliasTo=`:resolve-expression(expression=${host.aliases})`
+set contentTo=`:resolve-expression(expression=${host.key}-content)`
+set spaPath=`:resolve-expression(expression=${host.path}/index.html)`
+set hostKey=`:resolve-expression(expression=${host.key})`
+set corsRegex=`:resolve-expression(expression="regex(pattern='^(https://(?:.+[.])?${host.domains}(?::[0-9]{1,5})?(/([a-zA-Z0-9_?&=%.;:+-]{2,})?)*)$',value=%{i,Origin},full-match=true)")`
+set escaped=\"$corsRegex\"
+
+if (outcome != success) of /subsystem=undertow/server=default-server/host=$hostKey-host:read-resource
+
+    batch
+    /subsystem=undertow/configuration=handler/file=$contentTo:add(path=$pathTo)
+    /subsystem=undertow/server=default-server/host=$hostKey-host:add(alias=[$aliasTo])
+    /subsystem=undertow/server=default-server/host=$hostKey-host/location=\/:add(handler=$contentTo)
+    /subsystem=undertow/configuration=filter/error-page=spa-$hostKey-router:add(code="404",path=$spaPath)
+    /subsystem=undertow/server=default-server/host=$hostKey-host/filter-ref=hsts-header:add(predicate="equals(%p,443)")
+    /subsystem=undertow/server=default-server/host=$hostKey-host/filter-ref=http-to-https:add(predicate="equals(%p,80)")
+    /subsystem=undertow/server=default-server/host=$hostKey-host/filter-ref=spa-$hostKey-router:add(predicate="true")
+    /subsystem=undertow/server=default-server/host=$hostKey-host/filter-ref=cache-control:add(predicate="true")
+    /subsystem=undertow/server=default-server/host=$hostKey-host/filter-ref=content-type-options:add(predicate="true")
+    /subsystem=undertow/server=default-server/host=$hostKey-host/filter-ref=cors-allow-origin:add(predicate=$escaped)
+    /subsystem=undertow/server=default-server/host=$hostKey-host/filter-ref="Access-Control-Allow-Methods":add(predicate=$escaped)
+    /subsystem=undertow/server=default-server/host=$hostKey-host/filter-ref="Access-Control-Allow-Headers":add(predicate=$escaped)
+    /subsystem=undertow/server=default-server/host=$hostKey-host/filter-ref="Access-Control-Expose-Headers":add(predicate=$escaped)
+    /subsystem=undertow/server=default-server/host=$hostKey-host/filter-ref="Access-Control-Allow-Credentials":add(predicate=$escaped)
+    /subsystem=undertow/server=default-server/host=$hostKey-host/filter-ref="Access-Control-Max-Age":add(predicate=$escaped)
+    run-batch
+
+else
+
+    # Deja cree : mise a jour de ce qui depend de l'environnement.
+    batch
+    /subsystem=undertow/configuration=handler/file=$contentTo:write-attribute(name=path,value=$pathTo)
+    /subsystem=undertow/server=default-server/host=$hostKey-host:write-attribute(name=alias,value=[$aliasTo])
+    /subsystem=undertow/configuration=filter/error-page=spa-$hostKey-router:write-attribute(name=path,value=$spaPath)
+
+    /subsystem=undertow/server=default-server/host=$hostKey-host/filter-ref=cors-allow-origin:write-attribute(name=predicate,value=$escaped)
+    /subsystem=undertow/server=default-server/host=$hostKey-host/filter-ref="Access-Control-Allow-Methods":write-attribute(name=predicate,value=$escaped)
+    /subsystem=undertow/server=default-server/host=$hostKey-host/filter-ref="Access-Control-Allow-Headers":write-attribute(name=predicate,value=$escaped)
+    /subsystem=undertow/server=default-server/host=$hostKey-host/filter-ref="Access-Control-Expose-Headers":write-attribute(name=predicate,value=$escaped)
+    /subsystem=undertow/server=default-server/host=$hostKey-host/filter-ref="Access-Control-Allow-Credentials":write-attribute(name=predicate,value=$escaped)
+    /subsystem=undertow/server=default-server/host=$hostKey-host/filter-ref="Access-Control-Max-Age":write-attribute(name=predicate,value=$escaped)
+    run-batch
+
+end-if

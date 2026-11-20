@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>tn.supcom.examguard</groupId>
+    <artifactId>examguard-parent</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <relativePath>../../pom.xml</relativePath>
+  </parent>
+  <artifactId>examguard-crypto</artifactId>
+  <name>ExamGuard :: Cryptographie</name>
+  <description>
+    AES-256-GCM, HKDF-SHA-256, Ed25519, SHA-256 via l'API JCA de Java 25 ;
+    Argon2id via Bouncy Castle (seule primitive hors JDK, cf. risque projet section 8.2).
+  </description>
+  <dependencies>
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcprov-jdk18on</artifactId>
+    </dependency>
+  </dependencies>
+</project>
