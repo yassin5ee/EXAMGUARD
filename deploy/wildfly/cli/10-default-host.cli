@@ -1,0 +1,101 @@
+# Hote par defaut : PWA frontoffice. Definit aussi les filtres partages.
+#
+# DOIT ETRE JOUE EN PREMIER. C'est le seul script qui *definit* les filtres
+# partages (hsts-header, http-to-https, cache-control, content-type-options,
+# api-no-store, cors-allow-origin et les cinq en-tetes Access-Control-* statiques).
+# 20-add-host.cli et 30-add-api.cli ne font que s'y referer : joues avant celui-ci
+# sur un WildFly neuf, ils echouent.
+#
+# Contraintes du CLI WildFly prises en compte ici. Chacune a ete verifiee par
+# execution contre un WildFly 42.0.0.Final ; voir deploy/README.md.
+#
+#   1. Les commandes "set" restent HORS du bloc "batch" : "set" est une commande
+#      locale du CLI, pas une operation de gestion, et n'est pas admise dans un lot.
+#   2. Le motif CORS n'emploie aucune contre-oblique : le CLI les depouille toutes,
+#      de sorte que \d deviendrait "d" et \. deviendrait ".". D'ou [0-9] et [.],
+#      qui traversent le parseur intacts. Les points du domaine sont ecrits [.]
+#      dans les .properties pour la meme raison.
+#   3. Access-Control-Allow-Origin passe par un expression-filter et non par un
+#      response-header : ce dernier n'interprete pas les attributs d'echange et
+#      renverrait la chaine litterale "%{i,Origin}". Et "*" est refuse par les
+#      navigateurs des que Allow-Credentials vaut true : aucune valeur statique ne
+#      convient, il faut refleter l'origine de la requete.
+#   4. Access-Control-Max-Age est fixe a 600 s : a une seconde, presque chaque
+#      requete serait precedee de son preflight.
+#   5. HSTS sans "preload" : une soumission a hstspreload.org engagerait tout le
+#      domaine parent, hors perimetre du projet.
+#   6. Idempotence : les definitions sont gardees par un test d'existence, sans
+#      quoi un second passage echoue en "Duplicate resource" -- or le pipeline
+#      rejoue ce script.
+#
+# Pas de commande "echo" : le CLI n'y developpe pas les variables et imprime les
+# guillemets. C'est configure.sh qui rend compte de l'avancement.
+
+set pathTo=`:resolve-expression(expression=${default.path})`
+set aliasTo=`:resolve-expression(expression=${default.aliases})`
+set spaPath=`:resolve-expression(expression=${default.path}/index.html)`
+set corsRegex=`:resolve-expression(expression="regex(pattern='^(https://(?:.+[.])?${default.domains}(?::[0-9]{1,5})?(/([a-zA-Z0-9_?&=%.;:+-]{2,})?)*)$',value=%{i,Origin},full-match=true)")`
+set escaped=\"$corsRegex\"
+
+if (outcome != success) of /subsystem=undertow/configuration=filter/response-header=hsts-header:read-resource
+
+    batch
+
+    # --- Contenu statique de la PWA frontoffice ---
+    /subsystem=undertow/configuration=handler/file=welcome-content:write-attribute(name=path,value=$pathTo)
+    /subsystem=undertow/server=default-server/host=default-host:write-attribute(name=alias,value=[$aliasTo])
+
+    # --- Filtres partages ---
+    /subsystem=undertow/configuration=filter/response-header=hsts-header:add(header-name=Strict-Transport-Security,header-value="max-age=63072000; includeSubDomains")
+    /subsystem=undertow/configuration=filter/rewrite=http-to-https:add(target="https://%v%U",redirect=true)
+    /subsystem=undertow/configuration=filter/response-header=cache-control:add(header-name=Cache-Control,header-value="private,no-cache")
+    /subsystem=undertow/configuration=filter/response-header=content-type-options:add(header-name=X-Content-Type-Options,header-value="nosniff")
+    # no-store, et non "private,no-cache" : exige par ES-CFG-01
+    # sur les reponses d'API sensibles. Reference par 30-add-api.cli.
+    /subsystem=undertow/configuration=filter/response-header=api-no-store:add(header-name=Cache-Control,header-value="no-store")
+    /subsystem=undertow/configuration=filter/error-page=spa-default-router:add(code="404",path=$spaPath)
+
+    # Reflexion de l'origine. L'expression est constante : c'est le predicat du
+    # filter-ref qui decide a quelles origines l'en-tete est accorde, exactement
+    # comme pour les cinq autres en-tetes Access-Control-*.
+    /subsystem=undertow/configuration=filter/expression-filter=cors-allow-origin:add(expression="set(attribute='%{o,Access-Control-Allow-Origin}', value=%{i,Origin})")
+
+    /subsystem=undertow/configuration=filter/response-header="Access-Control-Allow-Methods":add(header-name="Access-Control-Allow-Methods",header-value="GET, POST, OPTIONS, HEAD, PUT, PATCH, DELETE")
+    /subsystem=undertow/configuration=filter/response-header="Access-Control-Allow-Headers":add(header-name="Access-Control-Allow-Headers",header-value="accept, authorization, content-type, x-requested-with, if-match, if-none-match")
+    /subsystem=undertow/configuration=filter/response-header="Access-Control-Expose-Headers":add(header-name="Access-Control-Expose-Headers",header-value="strict-transport-security, content-security-policy, content-type, content-encoding, date, location, last-modified, etag, link")
+    /subsystem=undertow/configuration=filter/response-header="Access-Control-Allow-Credentials":add(header-name="Access-Control-Allow-Credentials",header-value="true")
+    /subsystem=undertow/configuration=filter/response-header="Access-Control-Max-Age":add(header-name="Access-Control-Max-Age",header-value="600")
+
+    # --- Application a l'hote par defaut ---
+    /subsystem=undertow/server=default-server/host=default-host/filter-ref=hsts-header:add(predicate="equals(%p,443)")
+    /subsystem=undertow/server=default-server/host=default-host/filter-ref=http-to-https:add(predicate="equals(%p,80)")
+    /subsystem=undertow/server=default-server/host=default-host/filter-ref=spa-default-router:add(predicate="true")
+    /subsystem=undertow/server=default-server/host=default-host/filter-ref=cache-control:add(predicate="true")
+    /subsystem=undertow/server=default-server/host=default-host/filter-ref=content-type-options:add(predicate="true")
+    /subsystem=undertow/server=default-server/host=default-host/filter-ref=cors-allow-origin:add(predicate=$escaped)
+    /subsystem=undertow/server=default-server/host=default-host/filter-ref="Access-Control-Allow-Methods":add(predicate=$escaped)
+    /subsystem=undertow/server=default-server/host=default-host/filter-ref="Access-Control-Allow-Headers":add(predicate=$escaped)
+    /subsystem=undertow/server=default-server/host=default-host/filter-ref="Access-Control-Expose-Headers":add(predicate=$escaped)
+    /subsystem=undertow/server=default-server/host=default-host/filter-ref="Access-Control-Allow-Credentials":add(predicate=$escaped)
+    /subsystem=undertow/server=default-server/host=default-host/filter-ref="Access-Control-Max-Age":add(predicate=$escaped)
+
+    run-batch
+
+else
+
+    # Deja configure : on remet a jour ce qui depend de l'environnement, pour qu'un
+    # changement de chemin, d'alias ou de domaine soit pris en compte sans repartir
+    # d'un serveur vierge. write-attribute est naturellement idempotent.
+    batch
+    /subsystem=undertow/configuration=handler/file=welcome-content:write-attribute(name=path,value=$pathTo)
+    /subsystem=undertow/server=default-server/host=default-host:write-attribute(name=alias,value=[$aliasTo])
+    /subsystem=undertow/configuration=filter/error-page=spa-default-router:write-attribute(name=path,value=$spaPath)
+    /subsystem=undertow/server=default-server/host=default-host/filter-ref=cors-allow-origin:write-attribute(name=predicate,value=$escaped)
+    /subsystem=undertow/server=default-server/host=default-host/filter-ref="Access-Control-Allow-Methods":write-attribute(name=predicate,value=$escaped)
+    /subsystem=undertow/server=default-server/host=default-host/filter-ref="Access-Control-Allow-Headers":write-attribute(name=predicate,value=$escaped)
+    /subsystem=undertow/server=default-server/host=default-host/filter-ref="Access-Control-Expose-Headers":write-attribute(name=predicate,value=$escaped)
+    /subsystem=undertow/server=default-server/host=default-host/filter-ref="Access-Control-Allow-Credentials":write-attribute(name=predicate,value=$escaped)
+    /subsystem=undertow/server=default-server/host=default-host/filter-ref="Access-Control-Max-Age":write-attribute(name=predicate,value=$escaped)
+    run-batch
+
+end-if

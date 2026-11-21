@@ -1,0 +1,65 @@
+# Hote applicatif : le WAR est monte a la racine de son sous-domaine via
+# default-web-module. Joue deux fois, avec api-*.properties puis iam-*.properties.
+#
+# Suppose 10-default-host.cli deja joue : les filtres references ici y sont definis.
+#
+# Contraintes du CLI WildFly et choix retenus, verifies par execution contre un
+# WildFly 42.0.0.Final ; voir deploy/README.md.
+#   1. Le motif CORS n'emploie aucune contre-oblique : le CLI les depouille
+#      toutes, de sorte que \d{1,5} deviendrait "d{1,5}" et ne reconnaitrait plus
+#      un port. Une origine telle que https://api.examguard.local:8443 serait
+#      alors rejetee -- sans effet visible en production, ou le port 443 est
+#      implicite, mais bloquant en developpement. [0-9] et [.] traversent le
+#      parseur intacts.
+#   2. Le filtre api-no-store applique Cache-Control: no-store, exige par
+#      ES-CFG-01 sur les reponses d'API sensibles. Le filtre
+#      cache-control de l'hote par defaut vaut "private,no-cache", ce qui
+#      autorise encore la mise en cache : il ne convient pas ici.
+#   3. Access-Control-Allow-Origin provient de l'expression-filter global
+#      cors-allow-origin (defini par 10-default-host.cli) : un response-header
+#      n'interprete pas %{i,Origin} et renverrait la chaine litterale. Son
+#      expression est constante : c'est le predicat du filter-ref qui decide.
+#   4. Pas de commande "echo" : le CLI n'y developpe pas les variables.
+
+set pathTo=`:resolve-expression(expression=${api.name}-${api.version}.war)`
+set aliasTo=`:resolve-expression(expression=${api.aliases})`
+set apiName=`:resolve-expression(expression=${api.name})`
+set logPrefix=`:resolve-expression(expression=${api.context}-${api.name})`
+set corsRegex=`:resolve-expression(expression="regex(pattern='^(https://(?:.+[.])?${api.domains}(?::[0-9]{1,5})?(/([a-zA-Z0-9_?&=%.;:+-]{2,})?)*)$',value=%{i,Origin},full-match=true)")`
+set escaped=\"$corsRegex\"
+
+if (outcome != success) of /subsystem=undertow/server=default-server/host=$apiName-host:read-resource
+
+    batch
+    /subsystem=undertow/server=default-server/host=$apiName-host:add(alias=[$aliasTo],default-web-module=$pathTo)
+    /subsystem=undertow/server=default-server/host=$apiName-host/setting=access-log:add
+    /subsystem=undertow/server=default-server/host=$apiName-host/setting=access-log:write-attribute(name=pattern,value="combined")
+    /subsystem=undertow/server=default-server/host=$apiName-host/setting=access-log:write-attribute(name=prefix,value=$logPrefix)
+    /subsystem=undertow/server=default-server/host=$apiName-host/filter-ref=hsts-header:add(predicate="equals(%p,443)")
+    /subsystem=undertow/server=default-server/host=$apiName-host/filter-ref=http-to-https:add(predicate="equals(%p,80)")
+    /subsystem=undertow/server=default-server/host=$apiName-host/filter-ref=content-type-options:add(predicate="true")
+    /subsystem=undertow/server=default-server/host=$apiName-host/filter-ref=api-no-store:add(predicate="true")
+    /subsystem=undertow/server=default-server/host=$apiName-host/filter-ref=cors-allow-origin:add(predicate=$escaped)
+    /subsystem=undertow/server=default-server/host=$apiName-host/filter-ref="Access-Control-Allow-Methods":add(predicate=$escaped)
+    /subsystem=undertow/server=default-server/host=$apiName-host/filter-ref="Access-Control-Allow-Headers":add(predicate=$escaped)
+    /subsystem=undertow/server=default-server/host=$apiName-host/filter-ref="Access-Control-Expose-Headers":add(predicate=$escaped)
+    /subsystem=undertow/server=default-server/host=$apiName-host/filter-ref="Access-Control-Allow-Credentials":add(predicate=$escaped)
+    /subsystem=undertow/server=default-server/host=$apiName-host/filter-ref="Access-Control-Max-Age":add(predicate=$escaped)
+    run-batch
+
+else
+
+    # Deja cree : mise a jour de ce qui depend de l'environnement.
+    batch
+    /subsystem=undertow/server=default-server/host=$apiName-host:write-attribute(name=alias,value=[$aliasTo])
+    /subsystem=undertow/server=default-server/host=$apiName-host:write-attribute(name=default-web-module,value=$pathTo)
+
+    /subsystem=undertow/server=default-server/host=$apiName-host/filter-ref=cors-allow-origin:write-attribute(name=predicate,value=$escaped)
+    /subsystem=undertow/server=default-server/host=$apiName-host/filter-ref="Access-Control-Allow-Methods":write-attribute(name=predicate,value=$escaped)
+    /subsystem=undertow/server=default-server/host=$apiName-host/filter-ref="Access-Control-Allow-Headers":write-attribute(name=predicate,value=$escaped)
+    /subsystem=undertow/server=default-server/host=$apiName-host/filter-ref="Access-Control-Expose-Headers":write-attribute(name=predicate,value=$escaped)
+    /subsystem=undertow/server=default-server/host=$apiName-host/filter-ref="Access-Control-Allow-Credentials":write-attribute(name=predicate,value=$escaped)
+    /subsystem=undertow/server=default-server/host=$apiName-host/filter-ref="Access-Control-Max-Age":write-attribute(name=predicate,value=$escaped)
+    run-batch
+
+end-if
