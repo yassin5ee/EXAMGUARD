@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>tn.supcom.examguard</groupId>
+    <artifactId>examguard-parent</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <relativePath>../../pom.xml</relativePath>
+  </parent>
+  <artifactId>examguard-iam</artifactId>
+  <packaging>war</packaging>
+  <name>ExamGuard :: IAM</name>
+  <description>Serveur d'autorisation OAuth 2.1 (ACF + PKCE), emission de jetons PASETO v4.public.</description>
+
+  <build>
+    <!--
+      CONTRAINTE DE DEPLOIEMENT, ne pas renommer librement.
+      add-api.cli resout le module web par defaut comme ${api.name}-${api.version}.war.
+      Avec iam-prod.properties (api.name=iam, api.version=1.0), WildFly attend iam-1.0.war.
+    -->
+    <finalName>${deployable.iam.name}-${deployable.version}</finalName>
+  </build>
+
+  <dependencies>
+    <dependency>
+      <groupId>jakarta.platform</groupId>
+      <artifactId>jakarta.jakartaee-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>tn.supcom.examguard</groupId>
+      <artifactId>examguard-domain</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>tn.supcom.examguard</groupId>
+      <artifactId>examguard-crypto</artifactId>
+    </dependency>
+  </dependencies>
+</project>

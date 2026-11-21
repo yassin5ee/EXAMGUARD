@@ -1,0 +1,100 @@
+# Pipeline CI minimal d'ExamGuard.
+#
+# Perimetre volontairement reduit au socle : compilation, tests unitaires,
+# gitleaks, et le test d'architecture des annotations de securite.
+# L'analyse des dependances (OWASP Dependency-Check, npm audit, echec a CVSS >= 7,0,
+# ES-CFG-03) et le balayage OWASP ZAP (ES-CFG-04) viennent s'ajouter aux iterations 4 et 5.
+#
+# Durcissement de la chaine d'outillage, au titre de SecDevOps :
+#   - les actions GitHub sont epinglees par empreinte de commit, non par etiquette
+#     mutable : une etiquette peut etre redeplacee vers un autre commit par
+#     quiconque controle le depot de l'action.
+#   - l'image gitleaks est epinglee par digest, pour la meme raison.
+#   - le jeton de workflow est en lecture seule.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  secrets:
+    name: Secrets (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Recuperer le depot avec son historique complet
+        # actions/checkout v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          # ES-CRY-03 exige « gitleaks sur tout l'historique » : un clone superficiel
+          # ne verrait pas un secret introduit puis retire dans un commit anterieur.
+          fetch-depth: 0
+
+      - name: gitleaks -- historique git complet
+        run: |
+          docker run --rm -v "$PWD":/repo \
+            ghcr.io/gitleaks/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
+            git /repo --redact --verbose --exit-code 1 --log-opts="--all --full-history"
+
+      - name: gitleaks -- arbre de travail
+        # Rattrape ce que l'historique ne montre pas : un fichier present mais
+        # jamais committe, ou ignore par .gitignore.
+        run: |
+          docker run --rm -v "$PWD":/repo \
+            ghcr.io/gitleaks/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
+            dir /repo --redact --verbose --exit-code 1
+
+  build:
+    name: Compilation, tests unitaires, test d'architecture
+    runs-on: ubuntu-latest
+    steps:
+      - name: Recuperer le depot
+        # actions/checkout v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Installer Java 25
+        # actions/setup-java v6.3.0
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      # « verify » et non « test » : le module examguard-arch-tests analyse les classes
+      # attachees par les deux WAR, qui ne sont produites qu'a la phase package.
+      - name: ./mvnw verify
+        run: ./mvnw -B -ntp verify
+
+      - name: Archiver les rapports de test
+        if: always()
+        # actions/upload-artifact v7.0.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: rapports-surefire
+          path: '**/target/surefire-reports/**'
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Archiver les deployables
+        # actions/upload-artifact v7.0.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: deployables
+          # Noms imposes par api-prod.properties et iam-prod.properties :
+          # add-api.cli resout default-web-module = ${api.name}-${api.version}.war
+          path: |
+            backend/examguard-api/target/api-1.0.war
+            backend/examguard-iam/target/iam-1.0.war
+          retention-days: 14
+          if-no-files-found: error

@@ -22,3 +22,28 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# --- Build Maven ---
+target/
+.mvn/wrapper/maven-wrapper.jar
+
+# --- Frontends ---
+node_modules/
+dist/
+build/
+
+# --- Secrets et configuration locale : jamais dans le depot (ES-CRY-03) ---
+# Les .properties de deploiement ne contiennent que chemins, alias et domaines,
+# et sont donc versionnes ; tout ce qui porte une cle ou un mot de passe ne l'est pas.
+.env
+.env.*
+*.p12
+*.jks
+*.pem
+*.key
+credential-store.cs
+
+# --- Outillage local ---
+.idea/
+*.iml
+.vscode/

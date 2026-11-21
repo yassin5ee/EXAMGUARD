@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>tn.supcom.examguard</groupId>
+  <artifactId>examguard-parent</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <name>ExamGuard</name>
+  <description>
+    Plateforme securisee de distribution, de protection et de tracabilite des examens numeriques.
+    Reacteur Maven multi-modules : socle commun, moteurs cryptographique et de dissimulation,
+    deux applications deployees (api, iam) et les tests d'architecture de securite.
+  </description>
+
+  <organization>
+    <name>Ecole Superieure des Communications de Tunis (SUP'COM)</name>
+  </organization>
+
+  <modules>
+    <module>backend/examguard-domain</module>
+    <module>backend/examguard-crypto</module>
+    <module>backend/examguard-marking</module>
+    <module>backend/examguard-api</module>
+    <module>backend/examguard-iam</module>
+    <module>backend/examguard-arch-tests</module>
+  </modules>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <maven.compiler.release>25</maven.compiler.release>
+
+    <!-- Plateforme : Jakarta EE 11 / WildFly 42 / Java 25 (cahier des charges v2.0, section 5.1) -->
+    <version.jakartaee>11.0.0</version.jakartaee>
+
+    <!-- Bibliotheques metier -->
+    <version.bouncycastle>1.80</version.bouncycastle>
+    <version.pdfbox>3.0.7</version.pdfbox>
+
+    <!-- Tests -->
+    <version.junit>5.14.4</version.junit>
+    <version.archunit>1.5.1</version.archunit>
+
+    <!-- Plugins -->
+    <version.plugin.compiler>3.15.0</version.plugin.compiler>
+    <version.plugin.surefire>3.5.6</version.plugin.surefire>
+    <version.plugin.war>3.5.1</version.plugin.war>
+
+    <!--
+      Nom de guerre des artefacts deployes.
+      Les scripts jboss-cli de deploy/ resolvent le module web par defaut de
+      chaque hote comme ${api.name}-${api.version}.war : les finalName des modules
+      api et iam sont donc contraints par api-*.properties / iam-*.properties.
+    -->
+    <deployable.api.name>api</deployable.api.name>
+    <deployable.iam.name>iam</deployable.iam.name>
+    <deployable.version>1.0</deployable.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>jakarta.platform</groupId>
+        <artifactId>jakarta.jakartaee-api</artifactId>
+        <version>${version.jakartaee}</version>
+        <scope>provided</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>org.bouncycastle</groupId>
+        <artifactId>bcprov-jdk18on</artifactId>
+        <version>${version.bouncycastle}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.pdfbox</groupId>
+        <artifactId>pdfbox</artifactId>
+        <version>${version.pdfbox}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.junit</groupId>
+        <artifactId>junit-bom</artifactId>
+        <version>${version.junit}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>com.tngtech.archunit</groupId>
+        <artifactId>archunit-junit5</artifactId>
+        <version>${version.archunit}</version>
+        <scope>test</scope>
+      </dependency>
+
+      <!-- Modules internes -->
+      <dependency>
+        <groupId>tn.supcom.examguard</groupId>
+        <artifactId>examguard-domain</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>tn.supcom.examguard</groupId>
+        <artifactId>examguard-crypto</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>tn.supcom.examguard</groupId>
+        <artifactId>examguard-marking</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>${version.plugin.compiler}</version>
+          <configuration>
+            <compilerArgs>
+              <arg>-Xlint:all,-serial,-processing</arg>
+            </compilerArgs>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>${version.plugin.surefire}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-war-plugin</artifactId>
+          <version>${version.plugin.war}</version>
+          <configuration>
+            <failOnMissingWebXml>false</failOnMissingWebXml>
+            <!-- Expose les classes compilees au module examguard-arch-tests. -->
+            <attachClasses>true</attachClasses>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+</project>
