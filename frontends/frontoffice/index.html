@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ExamGuard — frontoffice</title>
+  <style>
+    body { font: 15px/1.5 system-ui, sans-serif; max-width: 46rem; margin: 3rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.3rem; }
+    code { background: #f4f4f5; padding: .1rem .3rem; border-radius: 3px; }
+    dt { font-weight: 600; margin-top: .6rem; }
+    dd { margin: 0 0 0 1.2rem; }
+    .probe { border-left: 3px solid #d4d4d8; padding-left: 1rem; margin-top: 1.5rem; }
+    .ok { color: #15803d; } .ko { color: #b91c1c; } .na { color: #a1a1aa; }
+  </style>
+</head>
+<body>
+  <h1>ExamGuard — hôte <em>frontoffice</em></h1>
+
+  <p><strong>Emplacement réservé.</strong> Ce fichier sera remplacé par la
+  construction de la PWA React. Il n'existe que pour que l'hôte virtuel
+  <code>default-host</code> ait quelque chose à servir, et pour vérifier le
+  routage, le repli SPA et la politique d'origine.</p>
+
+  <dl>
+    <dt>Hôte vu par le navigateur</dt><dd><code id="host"></code></dd>
+    <dt>Chemin demandé</dt><dd><code id="path"></code></dd>
+  </dl>
+
+  <p>Si ce chemin est autre chose que <code>/</code>, le repli SPA fonctionne :
+  le filtre <code>spa-default-router</code> a servi ce fichier à la place d'un 404.</p>
+
+  <div class="probe">
+    <p><strong>Sonde d'origine croisée</strong> — appelle <code>/api/health</code>
+    sur l'hôte applicatif depuis cette page.</p>
+    <p>Statut : <span id="probe" class="na">en cours…</span></p>
+    <p id="note" class="na"></p>
+  </div>
+
+<script>
+  document.getElementById('host').textContent = location.host;
+  document.getElementById('path').textContent = location.pathname;
+
+  const probe = document.getElementById('probe');
+  const note  = document.getElementById('note');
+
+  // L'API vit sur son propre sous-domaine : la requete est donc inter-origine.
+  const apiOrigin = location.protocol + '//api.' + location.host;
+
+  fetch(apiOrigin + '/api/health', { credentials: 'include' })
+    .then(r => r.json())
+    .then(d => {
+      probe.textContent = 'accordee — ' + JSON.stringify(d);
+      probe.className = 'ok';
+    })
+    .catch(() => {
+      probe.textContent = 'refusee par le navigateur';
+      probe.className = 'ko';
+      if (location.protocol === 'http:') {
+        note.textContent = 'Attendu en developpement sans TLS : la politique '
+          + 'd\'origine n\'accepte que https. Ce refus est le comportement correct, '
+          + 'pas une panne. La sonde passe au vert une fois le ssl-context en place.';
+      } else {
+        note.textContent = 'En https, un refus signale une origine hors politique '
+          + 'ou une API injoignable.';
+      }
+    });
+</script>
+</body>
+</html>
