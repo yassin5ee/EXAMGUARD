@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns="https://jakarta.ee/xml/ns/jakartaee" version="6.1">
+  <context-param>
+    <param-name>resteasy.role.based.security</param-name>
+    <param-value>true</param-value>
+  </context-param>
+  <security-constraint>
+    <web-resource-collection>
+      <web-resource-name>Demonstration des exemplaires</web-resource-name>
+      <url-pattern>/api/exam-copies</url-pattern>
+      <url-pattern>/api/exam-copies/*</url-pattern>
+    </web-resource-collection>
+    <auth-constraint>
+      <role-name>ENSEIGNANT</role-name>
+      <role-name>RESPONSABLE_EXAMEN</role-name>
+      <role-name>AUDITEUR</role-name>
+    </auth-constraint>
+    <user-data-constraint><transport-guarantee>CONFIDENTIAL</transport-guarantee></user-data-constraint>
+  </security-constraint>
+  <login-config>
+    <auth-method>BASIC</auth-method>
+    <realm-name>ExamGuard development</realm-name>
+  </login-config>
+  <security-role><role-name>ENSEIGNANT</role-name></security-role>
+  <security-role><role-name>RESPONSABLE_EXAMEN</role-name></security-role>
+  <security-role><role-name>AUDITEUR</role-name></security-role>
+</web-app>

@@ -43,7 +43,31 @@ export JBOSS_HOME=/opt/wildfly
 
 `configure.sh` et `deploy.sh` sont idempotents : le pipeline les rejoue.
 
-Variables d'environnement :
+### Démonstration C-I-D : émettre et vérifier un exemplaire
+
+Sur une instance WildFly locale avec HTTPS, ajoutez `-Dexamguard.copies.demo.enabled=true`
+aux options JVM au démarrage. Configurez trois comptes applicatifs de test dans le domaine
+de sécurité de l'application (`add-user.sh -a` pour le domaine WildFly par défaut), avec les
+rôles `ENSEIGNANT`, `RESPONSABLE_EXAMEN` et `AUDITEUR`. Les routes utilisent HTTP Basic
+sur HTTPS. Les documents chiffrés et les clés de démonstration sont en mémoire : la limite
+est de quatre exemplaires et un redéploiement les efface. Utilisez des PDF fictifs.
+
+Dans Postman, choisissez **Body → binary** et l'en-tête `Content-Type: application/pdf`
+pour les deux requêtes POST. Utilisez le nom de l'hôte API et le port HTTPS de votre instance.
+
+1. Avec le compte enseignant, envoyez `POST /api/exam-copies?recipientId=amal` avec un PDF
+   de 1 à 50 pages et d'au plus 20 Mio. Remplacez `amal` par le nom du compte responsable.
+   La réponse `201` fournit `copyId` et `downloadUrl`.
+2. Avec le compte responsable, ouvrez `downloadUrl` et enregistrez le PDF de la réponse.
+   Un autre responsable doit recevoir `404` en utilisant la même URL.
+3. Avec le compte auditeur, envoyez `POST /api/exam-copies/verify?copyId=<id>` avec le fichier
+   téléchargé. Attendez `{"verdict":"VALID"}`. Soumettez ensuite une version modifiée du
+   fichier avec le même identifiant et attendez `{"verdict":"HASH_MISMATCH"}`.
+
+Cette démonstration vérifie l'intégrité exacte d'un PDF. Le marquage, les fenêtres de
+distribution et l'authentification IAM sont des étapes ultérieures.
+
+### Variables d'environnement
 
 | Variable         | Défaut                          | Rôle                           |
 |------------------|---------------------------------|--------------------------------|
