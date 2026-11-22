@@ -53,19 +53,31 @@ sur HTTPS. Les documents chiffrés et les clés de démonstration sont en mémoi
 est de quatre exemplaires et un redéploiement les efface. Utilisez des PDF fictifs.
 
 Dans Postman, choisissez **Body → binary** et l'en-tête `Content-Type: application/pdf`
-pour les deux requêtes POST. Utilisez le nom de l'hôte API et le port HTTPS de votre instance.
+pour les requêtes POST. Utilisez le nom de l'hôte API et le port HTTPS de votre instance.
 
 1. Avec le compte enseignant, envoyez `POST /api/exam-copies?recipientId=amal` avec un PDF
-   de 1 à 50 pages et d'au plus 20 Mio. Remplacez `amal` par le nom du compte responsable.
-   La réponse `201` fournit `copyId` et `downloadUrl`.
+   textuel de 1 à 50 pages et d'au plus 20 Mio. Remplacez `amal` par le nom du compte responsable.
+   Le marquage nécessite au moins 192 positions inter-mots modifiables. Pour la démonstration,
+   utilisez plusieurs pages de texte sélectionnable avec des lignes horizontales d'au moins
+   six mots. Un document incompatible renvoie `422` avec le code `PDF_NOT_MARKABLE`.
+   La réponse `201` fournit `copyId` et `downloadUrl`. En émettant le même sujet pour un autre
+   responsable, vous obtenez un second PDF dont l'empreinte est différente.
 2. Avec le compte responsable, ouvrez `downloadUrl` et enregistrez le PDF de la réponse.
    Un autre responsable doit recevoir `404` en utilisant la même URL.
 3. Avec le compte auditeur, envoyez `POST /api/exam-copies/verify?copyId=<id>` avec le fichier
    téléchargé. Attendez `{"verdict":"VALID"}`. Soumettez ensuite une version modifiée du
    fichier avec le même identifiant et attendez `{"verdict":"HASH_MISMATCH"}`.
+4. Pour examiner un PDF sans identifiant connu, envoyez `POST /api/exam-copies/identify`
+   avec le compte auditeur. Un fichier identique à un exemplaire enregistré donne
+   `EXACT_MATCH`. Si les octets diffèrent et que l'empreinte correspond à un seul exemplaire,
+   la réponse donne `FINGERPRINT_HINT`. Pour tester ce cas, modifiez le titre dans les
+   métadonnées du PDF et enregistrez une nouvelle version. Les deux résultats incluent
+   le `copyId`. Un PDF non marqué, incompatible ou ambigu donne `INDETERMINATE`.
 
-Cette démonstration vérifie l'intégrité exacte d'un PDF. Le marquage, les fenêtres de
-distribution et l'authentification IAM sont des étapes ultérieures.
+Le détecteur compare les espacements avec ceux du sujet original. Un indice par empreinte
+peut orienter l'examen d'un PDF réenregistré dont la géométrie est préservée. Le filigrane
+d'examen, le sceau avec manifeste, les fenêtres de distribution et l'authentification IAM
+restent à implémenter.
 
 ### Variables d'environnement
 

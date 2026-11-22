@@ -4,6 +4,7 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import jakarta.json.Json;
+import jakarta.json.JsonObjectBuilder;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -22,6 +23,7 @@ import jakarta.ws.rs.core.UriInfo;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import tn.supcom.examguard.domain.Roles;
+import tn.supcom.examguard.marking.fingerprint.PdfFingerprint;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -34,7 +36,6 @@ import java.util.UUID;
 @RequestScoped
 public class ExamCopyResource {
     private static final String PDF = "application/pdf";
-    private static final int MAX_BYTES = 20 * 1024 * 1024;
     private static final int MAX_PAGES = 50;
 
     @Inject
@@ -51,8 +52,14 @@ public class ExamCopyResource {
         }
         byte[] pdf = readPdfBody(body);
         validateSource(pdf);
-        UUID copyId = store.issue(recipientId, pdf)
-                .orElseThrow(() -> new WebApplicationException("Stockage de demonstration plein", 503));
+        UUID copyId;
+        try {
+            copyId = store.issue(recipientId, pdf)
+                    .orElseThrow(() -> new WebApplicationException("Stockage de demonstration plein", 503));
+        } catch (PdfFingerprint.PdfNotMarkableException e) {
+            return noStore(Response.status(422).entity(Json.createObjectBuilder()
+                    .add("error", "PDF_NOT_MARKABLE").add("message", e.getMessage()).build()));
+        }
 
         URI download = uri.getAbsolutePathBuilder().path(copyId.toString()).path("download").build();
         return noStore(Response.created(download).entity(Json.createObjectBuilder()
@@ -84,6 +91,19 @@ public class ExamCopyResource {
         return noStore(Response.ok(Json.createObjectBuilder().add("verdict", verdict.name()).build()));
     }
 
+    @POST
+    @Path("/identify")
+    @Consumes(PDF)
+    @RolesAllowed(Roles.AUDITEUR)
+    public Response identify(InputStream body) throws GeneralSecurityException {
+        requireDemoEnabled();
+        JsonObjectBuilder result = Json.createObjectBuilder();
+        store.identify(readPdfBody(body)).ifPresentOrElse(
+                match -> result.add("verdict", match.evidence().name()).add("copyId", match.copyId().toString()),
+                () -> result.add("verdict", "INDETERMINATE"));
+        return noStore(Response.ok(result.build()));
+    }
+
     private static void requireDemoEnabled() {
         if (!Boolean.getBoolean("examguard.copies.demo.enabled")) {
             throw new NotFoundException();
@@ -96,11 +116,11 @@ public class ExamCopyResource {
         }
         byte[] bytes;
         try {
-            bytes = body.readNBytes(MAX_BYTES + 1);
+            bytes = body.readNBytes(PdfFingerprint.MAX_PDF_BYTES + 1);
         } catch (IOException e) {
             throw new BadRequestException("Lecture du document impossible");
         }
-        if (bytes.length > MAX_BYTES) {
+        if (bytes.length > PdfFingerprint.MAX_PDF_BYTES) {
             throw new WebApplicationException("Document de plus de 20 Mio", 413);
         }
         if (bytes.length == 0) {
