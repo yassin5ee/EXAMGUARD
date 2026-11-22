@@ -40,5 +40,9 @@
       <groupId>tn.supcom.examguard</groupId>
       <artifactId>examguard-marking</artifactId>
     </dependency>
+    <dependency>
+      <groupId>org.apache.pdfbox</groupId>
+      <artifactId>pdfbox</artifactId>
+    </dependency>
   </dependencies>
 </project>
